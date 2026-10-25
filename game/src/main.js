@@ -60,6 +60,25 @@ const ENEMY_HIT_DISTANCE = 45;
  */
 const MAX_ENEMIES = 48;
 
+/**
+ * Basic tongue damage split.
+ *
+ * The tongue still hits all around (the croak wave is the in-world reason),
+ * but the front 120-degree wedge is a direct hit and the rest is splash.
+ * This gives facing a purpose without turning the attack into a narrow cone.
+ */
+const ATTACK_DIRECT_ARC = (Math.PI * 2) / 3;
+const ATTACK_SPLASH_MULT = 0.7;
+
+/** Croak active skill: cooldown, unlock level and shove/stun tuning. */
+const CROAK_COOLDOWN = 7;
+const CROAK_UNLOCK_LEVEL = 4;
+const CROAK_STUN_DURATION = 0.6;
+const CROAK_PUSH_DISTANCE = 90;
+const CROAK_PUSH_STEPS = 5;
+const CROAK_DAMAGE_MULT = 0.5;
+const CROAK_BOSS_DAMAGE_MULT = 0.3;
+
 /** Death-burst colours, keyed by species, so the kill matches the body. */
 const KILL_COLORS = {
   fly: 0xffe066,
@@ -73,6 +92,27 @@ const KILL_COLORS = {
 /** @param {import('./components/Enemy.js').Enemy} enemy */
 function killColor(enemy) {
   return enemy.boss ? 0xffb347 : (KILL_COLORS[enemy.typeKey] || 0xfff0a8);
+}
+
+/**
+ * True when an enemy stands in the front wedge of the tongue snap.
+ *
+ * The check is on the enemy's centre, but the caller only uses it for the
+ * direct/splash multiplier; a target at the exact centre counts as direct so
+ * a point-blank hit never feels accidentally weak.
+ *
+ * @param {import('./components/Enemy.js').Enemy} enemy
+ * @param {number} facing Facing angle in radians around Z.
+ * @returns {boolean}
+ */
+function isDirectTongueHit(enemy, facing) {
+  if (enemy.boss) return true;
+  const dx = enemy.position.x - player.position.x;
+  const dy = enemy.position.y - player.position.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 1e-3) return true;
+  const dot = (dx * Math.cos(facing) + dy * Math.sin(facing)) / distance;
+  return dot >= Math.cos(ATTACK_DIRECT_ARC / 2);
 }
 
 
@@ -392,7 +432,7 @@ const geneCard = document.createElement('div');
 geneCard.className = 'gene-card';
 geneCard.setAttribute('role', 'dialog');
 geneCard.setAttribute('aria-modal', 'true');
-geneCard.setAttribute('aria-label', 'Gene drop');
+geneCard.setAttribute('aria-label', 'Gene splice');
 geneCard.style.display = 'none';
 document.body.appendChild(geneCard);
 
@@ -530,6 +570,165 @@ function renderAwakenBar() {
 }
 renderAwakenBar();
 
+// ---------------------------------------------------------------------------
+// Croak (active skill)
+// ---------------------------------------------------------------------------
+/**
+ * A small always-visible skill bar. Locked until hero level 4 so the opening
+ * minute is still about the basic tongue, then it becomes a real answer to
+ * being surrounded rather than another passive stat.
+ */
+const croakBar = document.createElement('div');
+croakBar.className = 'croak-bar';
+croakBar.setAttribute('aria-label', 'Croak skill');
+croakBar.innerHTML = [
+  '<span class="croak-key"><b>Q</b></span>',
+  '<span class="croak-copy">',
+  '  <span class="croak-name">Croak</span>',
+  '  <span class="croak-state">Locked · level 4</span>',
+  '</span>',
+].join('');
+document.body.appendChild(croakBar);
+
+let croakCooldown = 0;
+let croakUnlocked = false;
+
+/** Repaints the skill bar. Cheap enough to call on cooldown changes. */
+function renderCroakBar() {
+  if (!croakBar) return;
+  const stateEl = croakBar.querySelector('.croak-state');
+  const keyEl = croakBar.querySelector('.croak-key');
+
+  if (!croakUnlocked) {
+    croakBar.dataset.state = 'locked';
+    stateEl.textContent = `Locked · level ${CROAK_UNLOCK_LEVEL}`;
+    keyEl.style.setProperty('--croak-progress', '0%');
+    return;
+  }
+  if (croakCooldown <= 0) {
+    croakBar.dataset.state = 'ready';
+    stateEl.textContent = 'Ready · shove the swarm';
+    keyEl.style.setProperty('--croak-progress', '0%');
+    return;
+  }
+
+  const progress = 1 - croakCooldown / CROAK_COOLDOWN;
+  croakBar.dataset.state = 'cooldown';
+  stateEl.textContent = `Cooling down · ${croakCooldown.toFixed(1)}s`;
+  keyEl.style.setProperty('--croak-progress', `${Math.round(progress * 100)}%`);
+}
+
+/** Unlocks the skill once, with a clear in-game announcement. */
+function updateCroakUnlock() {
+  const shouldUnlock = health.level >= CROAK_UNLOCK_LEVEL;
+  if (shouldUnlock === croakUnlocked) return;
+  croakUnlocked = shouldUnlock;
+  renderCroakBar();
+  if (croakUnlocked) {
+    hud.showAction(
+      'Croak unlocked — press Q to shove and stun the swarm',
+      'croak',
+      '#8ef7b0',
+      2600
+    );
+    sound.croakUnlock();
+  }
+}
+
+/** Radius of the active Croak, independent of the late-game tongue reach. */
+function croakRadius() {
+  return Math.min(640, Math.max(280, attack.radius * 1.1));
+}
+
+/**
+ * Fires Croak: a 360-degree shove with a short stun. Ordinary insects that
+ * survive are pushed out and stopped for a beat; bosses take a small share of
+ * damage and are never shoved, so the skill cannot kite a giant for free.
+ *
+ * @returns {boolean} True if the skill fired.
+ */
+function triggerCroak() {
+  if (gameState !== 'playing' || paused || !croakUnlocked || croakCooldown > 0) {
+    return false;
+  }
+
+  const radius = croakRadius();
+  croakCooldown = CROAK_COOLDOWN;
+  renderCroakBar();
+  attack.playCroak(radius);
+  juice.onCroak(player.position);
+  sound.croak();
+
+  const origin = player.position;
+  const survivors = [];
+  let hitCount = 0;
+
+  for (const enemy of enemies) {
+    const dx = enemy.position.x - origin.x;
+    const dy = enemy.position.y - origin.y;
+    const reach = radius + (enemy.boss ? enemy.radius : 0);
+    if (Math.hypot(dx, dy) > reach) {
+      survivors.push(enemy);
+      continue;
+    }
+
+    hitCount += 1;
+    const power = enemy.boss
+      ? playerStats.attackPower * CROAK_BOSS_DAMAGE_MULT
+      : playerStats.attackPower * CROAK_DAMAGE_MULT;
+    const killed = enemy.takeHit(power);
+    if (killed) {
+      awardKill(enemy);
+      continue;
+    }
+
+    juice.onCroakHit(enemy.position, enemy.boss);
+    if (!enemy.boss) {
+      enemy.stun(CROAK_STUN_DURATION);
+      // Shove in small collision-checked steps rather than teleporting, so a
+      // croak cannot push an insect through a tree or a house wall.
+      const length = Math.hypot(dx, dy);
+      const nx = length > 1e-3 ? dx / length : 1;
+      const ny = length > 1e-3 ? dy / length : 0;
+      const stepLength = CROAK_PUSH_DISTANCE / CROAK_PUSH_STEPS;
+      for (let step = 0; step < CROAK_PUSH_STEPS; step += 1) {
+        const nextX = enemy.position.x + nx * stepLength;
+        const nextY = enemy.position.y + ny * stepLength;
+        if (!canEnemyStep(nextX, nextY, enemy)) break;
+        enemy.group.position.x = nextX;
+        enemy.group.position.y = nextY;
+      }
+      clampToBoard(enemy.position, enemy.radius * 0.5);
+    }
+    survivors.push(enemy);
+  }
+
+  enemies = survivors;
+  renderBossBar();
+  hud.showAction(
+    hitCount > 0
+      ? `Croak! ${hitCount} insect${hitCount === 1 ? '' : 's'} shoved back`
+      : 'Croak — nothing in range',
+    'croak',
+    '#8ef7b0',
+    1300
+  );
+  return true;
+}
+
+window.addEventListener('keydown', (event) => {
+  if (event.code !== 'KeyQ') return;
+  if (gameState !== 'playing' || paused) return;
+  if (!croakUnlocked) {
+    hud.showAction(`Croak unlocks at hero level ${CROAK_UNLOCK_LEVEL}`, 'croak', '#8ef7b0', 1400);
+    return;
+  }
+  event.preventDefault();
+  triggerCroak();
+});
+
+renderCroakBar();
+
 /** Spends a charge and turns the boost on. */
 function triggerAwakening() {
   if (!awakening.activate()) return;
@@ -553,7 +752,7 @@ window.addEventListener('keydown', (event) => {
   triggerAwakening();
 });
 
-/** Opens the Take/Skip card for the orb the hero just touched. */
+/** Opens the Absorb/Discard specimen for the orb the hero just touched. */
 function showGeneCard() {
   const info = genes.preview();
   if (!info) return;
@@ -562,6 +761,7 @@ function showGeneCard() {
   // Do not let a stray Space fire an attack while the world is frozen.
   attack.enabled = false;
   geneCard.style.display = 'flex';
+  sound.geneOffer();
 
   const tierColor = `#${TIER_COLORS[info.tier].toString(16).padStart(6, '0')}`;
   const fmt = (v) => String(Math.round(v * 10) / 10);
@@ -573,7 +773,7 @@ function showGeneCard() {
     mergeText = 'First stack · locks this species for the run';
   } else if (info.kind === 'full') {
     actionText = 'All gene slots are full';
-    mergeText = 'Take is disabled · skip this orb';
+    mergeText = 'Absorb is disabled · discard this orb';
   } else if (info.kind === 'upgrade') {
     actionText =
       `${TIER_LABELS[info.currentTier]} → ${TIER_LABELS[info.nextTier]} · ` +
@@ -612,27 +812,32 @@ function showGeneCard() {
   geneCard.innerHTML = [
     '<div class="gene-card-box" tabindex="-1" ' +
       `style="--gene-tone:${statStyle.color};--tier:${tierColor}">`,
-    '  <div class="gene-card-head">',
-    `    <span class="gene-card-icon" aria-hidden="true">${statStyle.icon}</span>`,
-    `    <span class="gene-card-tier">${TIER_LABELS[info.tier]}</span>`,
+    '  <div class="gene-dish" aria-hidden="true">',
+    '    <span class="gene-dish-orbit orbit-a"></span>',
+    '    <span class="gene-dish-orbit orbit-b"></span>',
+    `    <span class="gene-card-icon">${statStyle.icon}</span>`,
+    `    <span class="gene-dish-tier">${TIER_LABELS[info.tier]}</span>`,
+    '    <span class="gene-dish-caption">SPECIMEN</span>',
     '  </div>',
-    '  <div class="gene-card-kicker">Gene drop</div>',
-    `  <div class="gene-card-title">${info.label} <span>Gene</span></div>`,
-    `  <div class="gene-card-stat">${info.description}</div>`,
-    `  <div class="gene-card-gain">${info.perLayerText}</div>`,
-    `  <div class="gene-card-cap">${info.capText}</div>`,
-    '  <div class="gene-card-action-wrap">',
-    `    <div class="gene-card-action">${actionText}</div>`,
-    `    <div class="gene-card-stacks">${mergeText}</div>`,
+    '  <div class="gene-copy">',
+    '    <div class="gene-card-kicker">Gene Splice</div>',
+    `    <div class="gene-card-title">${info.label} <span>Gene</span></div>`,
+    `    <div class="gene-card-stat">${info.description}</div>`,
+    `    <div class="gene-card-gain">${info.perLayerText}</div>`,
+    `    <div class="gene-card-cap">${info.capText}</div>`,
+    '    <div class="gene-card-action-wrap">',
+    `      <div class="gene-card-action">${actionText}</div>`,
+    `      <div class="gene-card-stacks">${mergeText}</div>`,
+    '    </div>',
+    '    <div class="gene-card-merge">',
+    `      <div class="gene-card-merge-label">${mergeLabel}</div>`,
+    `      <div class="gene-card-pips" aria-hidden="true">${pips}</div>`,
+    '    </div>',
+    `    <div class="gene-card-rule">${info.stackRule}</div>`,
     '  </div>',
-    '  <div class="gene-card-merge">',
-    `    <div class="gene-card-merge-label">${mergeLabel}</div>`,
-    `    <div class="gene-card-pips" aria-hidden="true">${pips}</div>`,
-    '  </div>',
-    `  <div class="gene-card-rule">${info.stackRule}</div>`,
     '  <div class="gene-card-buttons">',
-    `    <button class="gene-take" type="button"${info.kind === 'full' ? ' disabled' : ''}>Take <kbd>F</kbd></button>`,
-    '    <button class="gene-skip" type="button">Skip <kbd>G</kbd></button>',
+    `    <button class="gene-take" type="button"${info.kind === 'full' ? ' disabled' : ''}>Absorb <kbd>F</kbd></button>`,
+    '    <button class="gene-skip" type="button">Discard <kbd>G</kbd></button>',
     '  </div>',
     '</div>',
   ].join('');
@@ -667,7 +872,7 @@ function resolveGene(take) {
   geneCard.style.display = 'none';
   paused = false;
   attack.enabled = true;
-  // Drop any arrow keys pressed while the card was up.
+  // Drop any movement keys pressed while the card was up.
   player.stop();
   // Throw away the frozen time so the world does not jump on resume.
   clock.getDelta();
@@ -763,6 +968,7 @@ function showTalentOffer() {
   player.stop();
   delete talentCard.dataset.resolving;
   talentCard.style.display = 'flex';
+  sound.talentOffer();
 
   const cards = offer
     .map((talent, index) => {
@@ -905,13 +1111,14 @@ document.body.appendChild(pauseMenu);
  */
 function renderPauseMenu() {
   const controls = [
-    ['Arrow keys', 'Hop around the board'],
-    ['Space', 'Tongue blast (360°) — hold to keep attacking'],
+    ['WASD', 'Hop around the board'],
+    ['Space', 'Tongue snap + croak wave (360°) — hold to attack'],
     ['E', 'Awakening — spend a charge'],
+    ['Q', 'Croak — shove the swarm (level 4)'],
     ['1 / 2 / 3', 'Pick a talent card'],
     ['Esc', 'Decline the talent offer'],
-    ['F', 'Take the gene orb'],
-    ['G / Esc', 'Skip the gene orb'],
+    ['F', 'Absorb the gene orb'],
+    ['G / Esc', 'Discard the gene orb'],
     ['C', 'Character panel — your live stats'],
     ['P / Esc', 'Pause and resume'],
     ['M', 'Mute or unmute sound'],
@@ -940,6 +1147,8 @@ function renderPauseMenu() {
     '    <div class="pause-label">Field notes</div>',
     '    <div class="pause-notes">',
     `      <p><b>Awakening (E):</b> ${AWAKEN_DURATION}s of ${AWAKEN_SUMMARY}.</p>`,
+    '      <p><b>Tongue snap:</b> the front 120&deg; is a direct hit; the croak wave splashes everything else.</p>',
+    '      <p><b>Croak (Q):</b> unlocks at level 4 &mdash; a 360&deg; shove with a short stun.</p>',
     '      <p><b>Bomb pickup:</b> clears ordinary insects and deals 20% of a boss&rsquo;s max HP.</p>',
     '    </div>',
     '  </div>',
@@ -1187,6 +1396,18 @@ function renderCharPanel() {
       ['Charge', `${AWAKEN_SCORE_PER_CHARGE} pts`],
       ['Banked', `${awakening.charges} / ${AWAKEN_MAX_CHARGES}`],
     ]),
+    row(
+      'Croak',
+      croakUnlocked
+        ? croakCooldown > 0
+          ? `Cooling down · ${croakCooldown.toFixed(1)}s`
+          : 'Ready · press Q'
+        : `Unlocks at level ${CROAK_UNLOCK_LEVEL}`,
+      [
+        ['Cooldown', `${CROAK_COOLDOWN}s`],
+        ['Stun', `${CROAK_STUN_DURATION}s`],
+      ]
+    ),
   ].join('');
 
   charPanel.innerHTML = [
@@ -1287,7 +1508,8 @@ const damagedBushes = new Set();
 const hint = document.createElement('div');
 hint.className = 'hint';
 hint.innerHTML = [
-  '<div><kbd>Space</kbd> tongue blast</div>',
+  '<div><kbd>Space</kbd> tongue snap</div>',
+  '<div><kbd>Q</kbd> croak (level 4)</div>',
   '<div><kbd>C</kbd> character panel</div>',
   '<div><kbd>P</kbd> pause</div>',
 ].join('');
@@ -1469,6 +1691,9 @@ function resetGame() {
   // The awakening bar empties with the run.
   awakening.reset();
   renderAwakenBar();
+  croakCooldown = 0;
+  croakUnlocked = false;
+  renderCroakBar();
 
   // Bosses and their rewards reset with the run.
   boss = null;
@@ -2217,13 +2442,12 @@ function gameLoop() {
   // a declined offer returns exactly one interval later.
   const talentDue = talents.update(delta);
   if (talentDue) {
-    sound.awaken();
     showTalentOffer();
   }
   renderTalentPips();
   renderAwakenBar();
 
-  // Gene orbs bob; touching one opens the Take/Skip card and freezes the game.
+  // Gene orbs bob; touching one opens the Absorb/Discard specimen and freezes the game.
   if (!talentDue && genes.updateOrbs(delta, player.position)) {
     showGeneCard();
   }
@@ -2473,9 +2697,9 @@ function gameLoop() {
   // =======================================================================
   // 2. PROXIMITY HINT
   // =======================================================================
-  // One line, in Chinese, always showing the most relevant thing nearby —
-  // including live cooldowns, so the player is never left guessing why an
-  // interaction refused to fire.
+  // One line, always showing the most relevant thing nearby — including live
+  // cooldowns, so the player is never left guessing why an interaction refused
+  // to fire.
   let hintState = null;
 
   if (inHouse) {
@@ -2561,7 +2785,7 @@ function gameLoop() {
         : {
             key: 'tree',
             tone: 'ready',
-            text: 'Hit a fruit tree with your tongue blast (Space) to knock fruit loose',
+            text: 'Hit a fruit tree with your tongue snap (Space) to knock fruit loose',
           };
     }
   }
@@ -2606,19 +2830,33 @@ function gameLoop() {
   // 4. ATTACK LIFECYCLE
   // =======================================================================
   attack.update(delta);
+  updateCroakUnlock();
+  if (croakCooldown > 0) {
+    croakCooldown = Math.max(0, croakCooldown - delta);
+    renderCroakBar();
+  }
 
   // Every successful fire queues exactly one hit. Watching the visual effect
   // instead used to swallow shots when the cooldown was shorter than the lash.
   if (attack.consumeHit()) {
     // The tongue is already animate; this adds the tip spark and the FOV
     // punch at the moment the damage lands.
-    juice.onAttack(player.position, player.yaw.rotation.z, attack.radius);
+    const facing = player.yaw.rotation.z;
+    juice.onAttack(player.position, facing, attack.radius);
     const hit = attack.enemiesInRange(enemies);
     if (hit.length > 0) {
       const destroyed = hit.filter((enemy) => {
+        // The tongue snap is a direct hit in a 120-degree wedge. Insects
+        // outside it still take the croak wave, but at a reduced splash rate;
+        // bosses are always treated as direct so positioning behind them is
+        // never a trap.
+        const direct = isDirectTongueHit(enemy, facing);
+        const splash = direct ? 1 : ATTACK_SPLASH_MULT;
         // Bosses take a tempered share of the awakened attack: huge, but not
         // enough to erase the encounter in a couple of blasts.
-        const power = enemy.boss ? playerStats.attackPower * BOSS_AWAKEN_DAMAGE_MULT : playerStats.attackPower;
+        const power = enemy.boss
+          ? playerStats.attackPower * BOSS_AWAKEN_DAMAGE_MULT
+          : playerStats.attackPower * splash;
         // Damage actually dealt (armour + remaining HP both matter).
         const dealt = Math.min(power * (1 - enemy.armor), Math.max(0, enemy.hp));
         const killed = enemy.takeHit(power);
@@ -2747,6 +2985,14 @@ function gameLoop() {
     }
 
     enemy.updateBehavior(delta);
+
+    // A croak stun is a hard stop: keep the hit reaction and wing flap, but
+    // skip target picking and movement so the shove does not slide back in
+    // the same frame.
+    if (enemy.stunTimer > 0) {
+      enemy.stunTimer = Math.max(0, enemy.stunTimer - delta);
+      continue;
+    }
 
     // -- Pick a target ----------------------------------------------------
     let target = null;
@@ -3354,6 +3600,18 @@ window.__hud = {
   get genes() { return genes; },
   get talents() { return talents; },
   get awakening() { return awakening; },
+  get croakCooldown() { return croakCooldown; },
+  get croakUnlocked() { return croakUnlocked; },
+  /** Fires Croak without the keyboard. Only for arranging a test. */
+  fireCroak() {
+    return triggerCroak();
+  },
+
+  /** Clears Croak's cooldown. Only for arranging a test. */
+  resetCroakCooldown() {
+    croakCooldown = 0;
+    renderCroakBar();
+  },
   get boss() { return boss; },
   get bossBonus() { return bossBonus; },
   get nextBossScore() { return nextBossScore; },
@@ -3478,6 +3736,12 @@ window.__hud = {
   /** Forces the next talent offer to appear. Only for arranging a test. */
   primeTalentOffer() {
     talents.primeOffer();
+  },
+
+  /** Opens the talent draft immediately. Only for arranging a test. */
+  openTalentOffer() {
+    showTalentOffer();
+    return talentCard.style.display !== 'none';
   },
 
   /**

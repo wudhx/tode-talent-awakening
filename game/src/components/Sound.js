@@ -178,6 +178,32 @@ class Sound {
     this.tone({ freq: 380, endFreq: 90, duration: 0.24, type: 'sine', gain: 0.35 });
   }
 
+  /** A low, chesty croak under the tongue snap. */
+  croak() {
+    this.noise({ duration: 0.2, gain: 0.14, freq: 520, endFreq: 120, q: 1.5 });
+    this.tone({ freq: 160, endFreq: 52, duration: 0.34, type: 'sine', gain: 0.5 });
+    this.tone({ freq: 96, endFreq: 38, duration: 0.42, type: 'triangle', gain: 0.34, delay: 0.02 });
+  }
+
+  /** The moment Croak becomes available: a rising, open-throat call. */
+  croakUnlock() {
+    this.tone({ freq: 180, endFreq: 360, duration: 0.24, type: 'triangle', gain: 0.35 });
+    this.arpeggio([392, 523, 659], { step: 0.07, duration: 0.18, type: 'sine', gain: 0.32, offset: 0.12 });
+  }
+
+  /** Papery riffle and a bright chord for the talent draft. */
+  talentOffer() {
+    this.noise({ duration: 0.16, gain: 0.08, freq: 2600, endFreq: 900, q: 0.7 });
+    this.arpeggio([523, 659, 784], { step: 0.055, duration: 0.2, type: 'triangle', gain: 0.32 });
+  }
+
+  /** A wet pulse and a rising shimmer for the gene specimen. */
+  geneOffer() {
+    this.tone({ freq: 190, endFreq: 92, duration: 0.28, type: 'sine', gain: 0.38 });
+    this.noise({ duration: 0.22, gain: 0.08, freq: 700, endFreq: 240, q: 1.8 });
+    this.arpeggio([330, 494, 660], { step: 0.08, duration: 0.2, type: 'sine', gain: 0.24, offset: 0.1 });
+  }
+
   /** A bright two-note chirp when a fly is swallowed. */
   kill() {
     this.noise({ duration: 0.07, gain: 0.14, freq: 900, endFreq: 180, q: 0.8, delay: 0.01 });

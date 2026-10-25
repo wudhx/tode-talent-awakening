@@ -30,6 +30,7 @@ const ICONS = {
   shield: '🛡',
   bomb: '💣',
   fruit: '🍎',
+  croak: '🌀',
 };
 
 /**

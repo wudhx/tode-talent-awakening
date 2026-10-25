@@ -47,12 +47,100 @@ function easeInCubic(t) {
 }
 
 /**
+ * Builds one ring made of separated arc segments.
+ *
+ * A continuous hairline circle was technically correct but read as a HUD
+ * overlay rather than a croak travelling through the ground. Gaps between
+ * arcs give the eye something to follow as the ring expands, and a second
+ * ring lets the wave keep a readable front at late-game radii.
+ *
+ * @param {object} options
+ * @param {number} options.color Line colour.
+ * @param {number} options.arcs Number of arcs around the circle.
+ * @param {number} options.span Fraction of each arc slot that is drawn.
+ * @param {number} options.segments Subdivisions per arc.
+ * @param {number} options.opacity Base opacity.
+ * @returns {{mesh: THREE.LineSegments, baseOpacity: number}}
+ */
+function buildArcRing({ color, arcs, span, segments, opacity }) {
+  const points = [];
+  for (let arc = 0; arc < arcs; arc += 1) {
+    const start = (arc / arcs) * Math.PI * 2;
+    const length = (Math.PI * 2 / arcs) * span;
+    for (let i = 0; i < segments; i += 1) {
+      const a0 = start + (i / segments) * length;
+      const a1 = start + ((i + 1) / segments) * length;
+      points.push(
+        new THREE.Vector3(Math.cos(a0), Math.sin(a0), 0),
+        new THREE.Vector3(Math.cos(a1), Math.sin(a1), 0)
+      );
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  return { mesh: new THREE.LineSegments(geometry, material), baseOpacity: opacity };
+}
+
+/**
+ * Short radial ticks around the outside of a wave, like the edge of a sound
+ * ripple. They make the ring read as force moving outward, not a target UI.
+ */
+function buildRadialTicks(color, count = 12, opacity = 0.4) {
+  const points = [];
+  for (let i = 0; i < count; i += 1) {
+    const a = (i / count) * Math.PI * 2;
+    points.push(
+      new THREE.Vector3(Math.cos(a) * 0.9, Math.sin(a) * 0.9, 0),
+      new THREE.Vector3(Math.cos(a), Math.sin(a), 0)
+    );
+  }
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  return { mesh: new THREE.LineSegments(geometry, material), baseOpacity: opacity };
+}
+
+/**
+ * A single open arc, used to show the 120-degree direct-hit wedge in front of
+ * Tode. It is gold while the shockwave itself stays mint, so the player can
+ * separate "hit hard here" from "pushed everywhere".
+ */
+function buildFrontArc(color, opacity = 0.8) {
+  const points = [];
+  const segments = 20;
+  for (let i = 0; i <= segments; i += 1) {
+    const angle = -Math.PI / 3 + (i / segments) * (Math.PI * 2 / 3);
+    points.push(new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0));
+  }
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  return { mesh: new THREE.Line(geometry, material), baseOpacity: opacity };
+}
+
+/**
  * Implements the player's area-of-effect tongue attack.
  *
- * Pressing Space shoots a flat, rounded tongue out of Tode's mouth along his
- * facing. The tongue is parented to the same yaw pivot as the model, so it
- * cannot drift to his side or back when he turns. The damage check remains
- * radial around the hero; a thin ground ring communicates that radius.
+ * The tongue is the aimed trigger, not the whole area. A segmented croak wave
+ * expands from Tode and is what actually catches the surrounding insects; the
+ * front arc tells the player which side takes direct damage.
  */
 export class Attack {
   /**
@@ -73,7 +161,7 @@ export class Attack {
 
     // True while Space is held down. Driving auto-fire from the game loop
     // (rather than relying on OS key-repeat) means holding Space keeps firing
-    // even while arrow keys are pressed.
+    // even while movement keys are pressed.
     this.spaceHeld = false;
 
     // Set by every successful shot and consumed by the main loop, so a hit is
@@ -138,25 +226,53 @@ export class Attack {
     this.tongueParent = this.player.yaw || this.scene;
     this.tongueParent.add(this.tongue);
 
-    // A thin, expanding ground ring communicates the radial damage without
-    // becoming the old flat yellow disc. A line loop stays hairline-thin at
-    // any radius; a scaled ring mesh became a wide band late in a run.
-    const ringPoints = [];
-    for (let i = 0; i < 96; i += 1) {
-      const angle = (i / 96) * Math.PI * 2;
-      ringPoints.push(new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0));
-    }
-    const ringGeometry = new THREE.BufferGeometry().setFromPoints(ringPoints);
-    const ringMaterial = new THREE.LineBasicMaterial({
-      color: 0xff7a9a,
-      transparent: true,
-      opacity: 0,
-      depthWrite: false,
-    });
-    this.shockwave = new THREE.LineLoop(ringGeometry, ringMaterial);
-    this.shockwave.position.z = 1.5;
+    // The basic snap still needs a visible 360-degree consequence: a short
+    // croak wave leaves the frog at the same moment the tongue lands. The
+    // gold front arc is the direct-hit wedge; the mint rings are the splash.
+    this.shockwave = new THREE.Group();
     this.shockwave.visible = false;
     this.scene.add(this.shockwave);
+
+    this.waveParts = [];
+    const outer = buildArcRing({
+      color: 0x9dffc0,
+      arcs: 18,
+      span: 0.72,
+      segments: 3,
+      opacity: 0.62,
+    });
+    const inner = buildArcRing({
+      color: 0xffd76a,
+      arcs: 12,
+      span: 0.5,
+      segments: 2,
+      opacity: 0.38,
+    });
+    const ticks = buildRadialTicks(0x9dffc0, 12, 0.32);
+    this.frontArc = buildFrontArc(0xffd76a, 0.78);
+
+    for (const part of [outer, inner, ticks, this.frontArc]) {
+      this.waveParts.push(part);
+      this.shockwave.add(part.mesh);
+    }
+
+    // The active Croak is the same idea at a larger, slower scale. It gets
+    // its own group so it can overlap the basic attack without stealing it.
+    this.croakWave = new THREE.Group();
+    this.croakWave.visible = false;
+    this.scene.add(this.croakWave);
+    this.croakParts = [];
+    for (const part of [
+      buildArcRing({ color: 0xb8ffd2, arcs: 24, span: 0.64, segments: 3, opacity: 0.8 }),
+      buildArcRing({ color: 0xffd76a, arcs: 16, span: 0.4, segments: 2, opacity: 0.45 }),
+      buildArcRing({ color: 0x8ef7b0, arcs: 12, span: 0.3, segments: 2, opacity: 0.28 }),
+    ]) {
+      this.croakParts.push(part);
+      this.croakWave.add(part.mesh);
+    }
+    this.croakTimer = 0;
+    this.croakMaxLife = 0.55;
+    this.croakRadius = 280;
   }
 
   /**
@@ -198,6 +314,9 @@ export class Attack {
 
     this.tongue.visible = true;
     this.shockwave.visible = true;
+    this.shockwave.scale.setScalar(this.radius * 0.35);
+    this.shockwave.position.set(this.player.position.x, this.player.position.y, 1.5);
+    this.shockwave.rotation.z = this.player.yaw ? this.player.yaw.rotation.z : 0;
     this.visualTimer = ATTACK_VISUAL_DURATION;
 
     sound.attack();
@@ -205,6 +324,22 @@ export class Attack {
     this.pendingHit = true;
 
     return true;
+  }
+
+  /**
+   * Fires the larger, active Croak wave. The skill and its cooldown live in
+   * main.js; this class only owns the shared visual language.
+   *
+   * @param {number} radius Wave radius in world units.
+   */
+  playCroak(radius) {
+    this.croakRadius = Math.max(1, radius);
+    this.croakTimer = this.croakMaxLife;
+    this.croakWave.visible = true;
+    this.croakWave.position.set(this.player.position.x, this.player.position.y, 2.2);
+    this.croakWave.rotation.z = this.player.yaw ? this.player.yaw.rotation.z : 0;
+    this.croakWave.scale.setScalar(this.croakRadius * 0.18);
+    for (const part of this.croakParts) part.mesh.material.opacity = 0;
   }
 
   /**
@@ -271,12 +406,36 @@ export class Attack {
       this.tongueTip.scale.set(1 / (visual * reach), 1 / thickness, 1 / thickness);
 
       this.shockwave.position.set(this.player.position.x, this.player.position.y, 1.5);
+      this.shockwave.rotation.z = this.player.yaw ? this.player.yaw.rotation.z : 0;
       this.shockwave.scale.setScalar(this.radius * (0.35 + 0.75 * t));
-      this.shockwave.material.opacity = 0.55 * Math.pow(1 - t, 1.2);
+      const waveFade = Math.pow(1 - t, 1.15);
+      for (const part of this.waveParts) {
+        part.mesh.material.opacity = part.baseOpacity * waveFade;
+      }
 
       if (this.visualTimer === 0) {
         this.tongue.visible = false;
         this.shockwave.visible = false;
+        for (const part of this.waveParts) part.mesh.material.opacity = 0;
+      }
+    }
+
+    if (this.croakTimer > 0) {
+      this.croakTimer = Math.max(0, this.croakTimer - delta);
+      const t = 1 - this.croakTimer / this.croakMaxLife;
+      const fade = Math.pow(1 - t, 0.9);
+      this.croakWave.position.set(this.player.position.x, this.player.position.y, 2.2);
+      this.croakWave.rotation.z =
+        (this.player.yaw ? this.player.yaw.rotation.z : 0) + t * 0.3;
+      this.croakWave.scale.setScalar(
+        this.croakRadius * (0.18 + 0.94 * easeOutCubic(Math.min(1, t * 1.15)))
+      );
+      for (const part of this.croakParts) {
+        part.mesh.material.opacity = part.baseOpacity * fade;
+      }
+      if (this.croakTimer === 0) {
+        this.croakWave.visible = false;
+        for (const part of this.croakParts) part.mesh.material.opacity = 0;
       }
     }
   }
@@ -311,5 +470,9 @@ export class Attack {
     this.pendingHit = false;
     this.tongue.visible = false;
     this.shockwave.visible = false;
+    this.croakWave.visible = false;
+    this.croakTimer = 0;
+    for (const part of this.waveParts) part.mesh.material.opacity = 0;
+    for (const part of this.croakParts) part.mesh.material.opacity = 0;
   }
 }

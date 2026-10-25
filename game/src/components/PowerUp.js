@@ -54,8 +54,8 @@ export const POWERUP_TYPES = {
   range: {
     key: 'range',
     label: 'Range',
-    blurb: 'Bigger blast',
-    detail: 'Your tongue blast reaches 1.9x further — the ring grows to match.',
+    blurb: 'Longer snap',
+    detail: 'Your tongue snap reaches 1.9x further — the croak wave grows to match.',
     duration: 14,
     color: 0xff8c1a,
     multiplier: 1.9,

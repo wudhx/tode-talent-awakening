@@ -866,6 +866,10 @@ export class Enemy {
     // Countdown for the "took a hit but survived" swell.
     this.hitFlash = 0;
 
+    // Seconds left in the croak stun. main.js checks this before movement so
+    // a shoved insect visibly stops instead of sliding straight back in.
+    this.stunTimer = 0;
+
     // ---- State machine ----------------------------------------------------
     /** @type {'chasing' | 'disengaged'} */
     this.state = 'chasing';
@@ -975,6 +979,16 @@ export class Enemy {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Stops this insect for a short beat. Bosses are excluded by the caller.
+   *
+   * @param {number} seconds Stun duration.
+   */
+  stun(seconds) {
+    if (!(seconds > 0)) return;
+    this.stunTimer = Math.max(this.stunTimer, seconds);
   }
 
   /**

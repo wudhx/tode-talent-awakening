@@ -2,7 +2,7 @@
 
 > Submission for the **JetBrains Academy "Build Your Game Challenge"** (October 2026)
 
-A 3D survival RPG built with **Three.js**. Guide Tode across a checkerboard meadow: hop to dodge the swarm, keep the tongue blast firing, level up until your health bar is the level curve, draft talents, merge genes, and take on three bosses that each demand a different answer.
+A 3D survival RPG built with **Three.js**. Guide Tode across a checkerboard meadow: hop to dodge the swarm, keep the tongue snap and croak wave firing, level up until your health bar is the level curve, draft talents, merge genes, and take on three bosses that each demand a different answer.
 
 **▶ Play online:** https://wudhx.github.io/tode-talent-awakening/
 
@@ -10,8 +10,14 @@ A 3D survival RPG built with **Three.js**. Guide Tode across a checkerboard mead
 
 | Action | Key |
 |---|---|
-| Move (hop) | ↑ ↓ ← → |
-| Tongue blast (area attack) | `Space` |
+| Move (hop) | `W A S D` |
+| Tongue snap + croak wave | `Space` (hold to keep attacking) |
+| Croak — 360° shove (level 4) | `Q` |
+| Awakening | `E` |
+| Talent draft | `1` `2` `3`; `Esc` declines |
+| Gene specimen | `F` absorbs; `G` / `Esc` discards |
+| Character panel | `C` |
+| Pause | `P` / `Esc` |
 | Mute / unmute sound | `M` |
 | Restart (after Game Over) | `Space` |
 
@@ -52,7 +58,7 @@ Pickups spawn on the meadow every few seconds and are collected by hopping onto 
 
 Every sound effect is **synthesised at runtime with the Web Audio API** — oscillators and gain envelopes, no audio files. That keeps the bundle tiny and guarantees the game ships no third-party or commercially released recordings.
 
-- Hop, tongue blast, swallow, power-up, Game Over
+- Hop, tongue snap, croak, swallow, power-up, Game Over
 - A separate fanfare plays when you beat your best score
 - Browsers block audio until the first interaction, so the audio graph is created lazily on the first key press or click
 - `M` toggles mute

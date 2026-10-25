@@ -180,7 +180,7 @@ export class GeneSystem {
     this.slots = new Array(slotCount).fill(null);
     /** @type {Array<{key: string, tier: string, mesh: THREE.Mesh, x: number, y: number, phase: number}>} */
     this.orbs = [];
-    /** The orb currently awaiting a Take/Skip choice. */
+    /** The orb currently awaiting an Absorb/Discard choice. */
     this.pending = null;
     /** Kills since the last drop, for the pity timer. */
     this.killsSinceDrop = 0;

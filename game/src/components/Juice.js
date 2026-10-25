@@ -148,6 +148,42 @@ export class Juice {
   }
 
   /**
+   * The active Croak fired.
+   *
+   * No screen shake: the expanding ground wave is the impact. A short green
+   * flash and a small FOV breath make the skill feel like a pressure change
+   * rather than another hit.
+   *
+   * @param {THREE.Vector3} position World position of the frog.
+   */
+  onCroak(position) {
+    this.burst(position.x, position.y, 26, 0x8ef7b0, {
+      speed: 240,
+      spread: 2.6,
+      z: 18,
+    });
+    this.flash('rgba(142, 247, 176, 0.16)', 0.55, 0.34);
+    this.fovKick = Math.max(this.fovKick, 0.65);
+  }
+
+  /**
+   * A light contact spark for each insect caught by Croak. Deliberately not
+   * `onHit`: a 360-degree shove can catch twenty bodies at once, and stacking
+   * hit-stop and trauma twenty times turns polish into motion sickness.
+   *
+   * @param {THREE.Vector3} position World position of the shoved insect.
+   * @param {boolean} [isBoss]
+   */
+  onCroakHit(position, isBoss = false) {
+    this.burst(position.x, position.y, isBoss ? 5 : 2, 0x8ef7b0, {
+      speed: 90,
+      spread: 1.2,
+      z: 22,
+    });
+    if (isBoss) this.fovKick = Math.max(this.fovKick, 0.2);
+  }
+
+  /**
    * A boss survived a hit (ordinary insects die in one blow, so this is the
    * only place a non-fatal impact can be felt).
    *

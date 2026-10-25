@@ -1193,7 +1193,7 @@ canvas.game {
 /* --- Awakening bar ------------------------------------------------------- */
 .awaken-bar {
   position: fixed;
-  top: 206px;
+  top: 214px;
   left: 20px;
   z-index: 10;
   width: 212px;
@@ -1272,6 +1272,101 @@ canvas.game {
 
 .awaken-bar[data-state='active'] .awaken-track span {
   background: #ffffff;
+}
+
+/* --- Croak skill --------------------------------------------------------- */
+.croak-bar {
+  position: fixed;
+  top: 252px;
+  left: 20px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 212px;
+  padding: 7px 10px;
+  border: 1px solid rgba(142, 247, 176, 0.18);
+  border-radius: 12px;
+  background: rgba(18, 52, 34, 0.82);
+  color: #eafff0;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  user-select: none;
+  pointer-events: none;
+}
+
+.croak-key {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 29px;
+  height: 29px;
+  border-radius: 50%;
+  background: conic-gradient(
+    #8ef7b0 var(--croak-progress, 0%),
+    rgba(142, 247, 176, 0.16) 0
+  );
+  color: #dfffe8;
+  font-size: 11px;
+  font-weight: 900;
+  isolation: isolate;
+}
+
+.croak-key::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: #0d2a1b;
+  z-index: 0;
+}
+
+.croak-key b {
+  position: relative;
+  z-index: 1;
+  font: inherit;
+}
+
+.croak-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.croak-name {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c9ffda;
+}
+
+.croak-state {
+  overflow: hidden;
+  color: rgba(225, 255, 235, 0.62);
+  font-size: 9px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.croak-bar[data-state='ready'] {
+  border-color: rgba(142, 247, 176, 0.55);
+  background: rgba(25, 80, 49, 0.9);
+  box-shadow: 0 0 0 1px rgba(142, 247, 176, 0.14), 0 6px 18px rgba(31, 110, 64, 0.28);
+}
+
+.croak-bar[data-state='ready'] .croak-state {
+  color: #8ef7b0;
+}
+
+.croak-bar[data-state='locked'] {
+  opacity: 0.62;
+}
+
+.croak-bar[data-state='cooldown'] .croak-key {
+  color: rgba(223, 255, 232, 0.62);
 }
 
 /* --- Talent bar ---------------------------------------------------------- */
@@ -2223,4 +2318,486 @@ canvas.game {
   font: inherit;
   font-size: 12px;
   text-align: center;
+}
+
+/* =========================================================================
+   Gene specimen + talent draft differentiation
+   -------------------------------------------------------------------------
+   The old gene card and talent offer shared a dark-green, gold-trimmed card
+   language, so they read as two versions of the same menu. They are now two
+   different objects: a teal laboratory specimen console and a warm gold draft
+   table. Shape, palette, copy and motion all carry the distinction.
+   ========================================================================= */
+
+/* --- Gene Splice: a specimen console, not a card ------------------------- */
+.gene-card {
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(43, 139, 119, 0.3), transparent 45%),
+    radial-gradient(ellipse at 50% 100%, rgba(10, 37, 30, 0.92), rgba(2, 8, 7, 0.96) 72%);
+  backdrop-filter: blur(11px) saturate(1.18);
+}
+
+.gene-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 18% 24%, rgba(142, 247, 176, 0.14) 0 2px, transparent 3px),
+    radial-gradient(circle at 78% 16%, rgba(142, 247, 176, 0.1) 0 3px, transparent 4px),
+    radial-gradient(circle at 67% 74%, rgba(142, 247, 176, 0.08) 0 2px, transparent 3px),
+    radial-gradient(circle at 31% 82%, rgba(142, 247, 176, 0.1) 0 2px, transparent 3px);
+  background-size: 330px 330px, 410px 410px, 280px 280px, 380px 380px;
+  opacity: 0.8;
+}
+
+.gene-card .gene-card-box {
+  display: grid;
+  grid-template-columns: 226px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  gap: 8px 28px;
+  width: min(780px, 100%);
+  padding: 28px 32px 24px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid rgba(142, 247, 176, 0.34);
+  border-radius: 112px 24px 24px 24px;
+  background:
+    radial-gradient(120% 120% at 0 50%, rgba(98, 214, 160, 0.12), transparent 57%),
+    linear-gradient(145deg, rgba(10, 42, 35, 0.99), rgba(4, 14, 12, 0.99));
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(142, 247, 176, 0.06) inset,
+    0 0 80px rgba(31, 125, 92, 0.12);
+  color: #eafff2;
+  text-align: left;
+  animation: geneConsoleIn 0.44s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gene-card .gene-card-box::before {
+  top: 0;
+  left: 22%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(142, 247, 176, 0.85), transparent);
+  opacity: 0.8;
+}
+
+.gene-card .gene-card-box::after {
+  inset: 0;
+  width: auto;
+  height: auto;
+  border-radius: inherit;
+  background: radial-gradient(circle at 15% 50%, rgba(142, 247, 176, 0.12), transparent 55%);
+  opacity: 1;
+}
+
+.gene-dish {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: center;
+  width: 210px;
+  height: 210px;
+  border: 1px solid rgba(142, 247, 176, 0.55);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 28%, rgba(142, 247, 176, 0.26), transparent 22%),
+    radial-gradient(circle at 50% 55%, rgba(28, 116, 83, 0.84), rgba(8, 34, 25, 0.98) 69%);
+  box-shadow:
+    0 0 0 7px rgba(142, 247, 176, 0.045),
+    0 0 0 8px rgba(142, 247, 176, 0.16),
+    0 0 40px rgba(72, 210, 137, 0.16) inset,
+    0 18px 36px rgba(0, 0, 0, 0.4);
+  animation: geneDishIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gene-dish::before,
+.gene-dish::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.gene-dish::before {
+  inset: 14px;
+  border: 1px dashed rgba(142, 247, 176, 0.36);
+  animation: geneOrbit 22s linear infinite;
+}
+
+.gene-dish::after {
+  inset: 31px;
+  border: 1px solid rgba(142, 247, 176, 0.14);
+}
+
+.gene-dish-orbit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 176px;
+  height: 66px;
+  margin: -33px 0 0 -88px;
+  border: 1px solid rgba(142, 247, 176, 0.26);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.gene-dish-orbit.orbit-a {
+  transform: rotate(28deg);
+  animation: geneOrbitTiltA 9s ease-in-out infinite alternate;
+}
+
+.gene-dish-orbit.orbit-b {
+  transform: rotate(-31deg);
+  border-color: rgba(255, 215, 106, 0.22);
+  animation: geneOrbitTiltB 11s ease-in-out infinite alternate;
+}
+
+.gene-card .gene-card-icon {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(142, 247, 176, 0.16), transparent 70%);
+  box-shadow: none;
+  color: var(--gene-tone, #ffd166);
+}
+
+.gene-card .gene-card-icon svg {
+  width: 46px;
+  height: 46px;
+  filter: drop-shadow(0 0 10px rgba(142, 247, 176, 0.28));
+}
+
+.gene-dish-tier {
+  position: absolute;
+  top: 23px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 3px 8px;
+  border: 1px solid var(--tier);
+  border-radius: 999px;
+  background: rgba(3, 18, 13, 0.7);
+  color: var(--tier);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.gene-dish-caption {
+  position: absolute;
+  bottom: 23px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  color: rgba(201, 255, 218, 0.48);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+}
+
+.gene-copy {
+  grid-column: 2;
+  align-self: center;
+  min-width: 0;
+}
+
+.gene-card .gene-card-kicker {
+  margin-top: 0;
+  color: #8ef7b0;
+}
+
+.gene-card .gene-card-title {
+  margin-top: 4px;
+  color: #f0fff4;
+  font-size: 30px;
+}
+
+.gene-card .gene-card-title span {
+  color: rgba(201, 255, 218, 0.55);
+}
+
+.gene-card .gene-card-stat {
+  color: var(--gene-tone, #ffd166);
+}
+
+.gene-card .gene-card-gain {
+  margin-top: 11px;
+  padding: 11px 14px;
+  border: 1px solid rgba(142, 247, 176, 0.16);
+  border-radius: 12px;
+  background: rgba(142, 247, 176, 0.06);
+  color: #c9ffda;
+}
+
+.gene-card .gene-card-cap {
+  color: rgba(201, 255, 218, 0.55);
+}
+
+.gene-card .gene-card-action-wrap {
+  border-top-color: rgba(142, 247, 176, 0.14);
+}
+
+.gene-card .gene-card-action {
+  color: #eafff2;
+}
+
+.gene-card .gene-card-merge-label,
+.gene-card .gene-card-rule {
+  color: rgba(201, 255, 218, 0.48);
+}
+
+.gene-card .gene-card-pips span.filled {
+  background: #8ef7b0;
+  box-shadow: 0 0 8px rgba(142, 247, 176, 0.75);
+}
+
+.gene-card .gene-card-buttons {
+  grid-column: 2;
+  margin-top: 6px;
+}
+
+.gene-card .gene-take {
+  background: linear-gradient(135deg, #b8ffd2, #4fd68c);
+  color: #062017;
+  box-shadow: 0 8px 22px rgba(79, 214, 140, 0.18);
+}
+
+.gene-card .gene-skip {
+  border-color: rgba(142, 247, 176, 0.18);
+  background: rgba(142, 247, 176, 0.045);
+  color: rgba(220, 255, 232, 0.72);
+}
+
+.gene-card .gene-skip:hover {
+  border-color: rgba(142, 247, 176, 0.48);
+  background: rgba(142, 247, 176, 0.1);
+  color: #d6ffdf;
+}
+
+/* --- Talent Draft: a warm gold choice table ------------------------------ */
+.talent-card {
+  background:
+    radial-gradient(ellipse at 50% 8%, rgba(243, 201, 105, 0.24), transparent 46%),
+    radial-gradient(ellipse at 50% 100%, rgba(36, 26, 10, 0.88), rgba(6, 7, 5, 0.96) 70%);
+  backdrop-filter: blur(10px) saturate(1.05);
+}
+
+.talent-box {
+  width: min(940px, 100%);
+  border-color: rgba(243, 201, 105, 0.35);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(243, 201, 105, 0.08), transparent 16%, transparent 84%, rgba(243, 201, 105, 0.08)),
+    radial-gradient(circle at 50% -20%, rgba(243, 201, 105, 0.18), transparent 52%),
+    linear-gradient(155deg, rgba(37, 31, 19, 0.99), rgba(10, 10, 8, 0.99));
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(243, 201, 105, 0.08) inset;
+}
+
+.talent-box::before {
+  background: radial-gradient(ellipse at 50% 0%, rgba(243, 201, 105, 0.26), transparent 68%);
+}
+
+.talent-box::after {
+  content: '';
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(243, 201, 105, 0.8), transparent);
+  pointer-events: none;
+}
+
+.talent-tier {
+  color: #f3c969;
+  letter-spacing: 0.26em;
+}
+
+.talent-title {
+  color: #fff5d6;
+  text-shadow: 0 0 28px rgba(243, 201, 105, 0.22);
+}
+
+.talent-choices {
+  perspective: 1100px;
+  gap: 16px;
+}
+
+.talent-choice {
+  border-radius: 6px;
+  border-color: rgba(243, 201, 105, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 243, 205, 0.045), transparent 18%),
+    radial-gradient(120% 80% at 100% 0%, var(--tone-soft), transparent 58%),
+    linear-gradient(165deg, rgba(42, 35, 22, 0.96), rgba(15, 15, 11, 0.98));
+  transform-origin: 50% 100%;
+  animation: talentFanIn 0.46s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--i) * 80ms + 80ms);
+}
+
+.talent-choice:hover,
+.talent-choice:focus-visible {
+  transform: translateY(-7px) rotate(calc((var(--i) - 1) * 0.6deg));
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.42),
+    0 0 0 1px var(--tone-line),
+    0 0 32px var(--tone-soft);
+}
+
+.talent-choice.is-picked {
+  transform: translateY(-3px) scale(0.98);
+}
+
+.talent-key {
+  border-radius: 3px;
+  border-color: rgba(243, 201, 105, 0.24);
+  color: rgba(255, 239, 194, 0.78);
+}
+
+.talent-foot {
+  border-top-color: rgba(243, 201, 105, 0.12);
+}
+
+@keyframes geneConsoleIn {
+  from {
+    opacity: 0;
+    transform: translateX(-18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes geneDishIn {
+  from {
+    opacity: 0;
+    transform: scale(0.76) rotate(-12deg);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.035) rotate(2deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes geneOrbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes geneOrbitTiltA {
+  from { transform: rotate(28deg) scaleY(0.92); }
+  to { transform: rotate(34deg) scaleY(1.04); }
+}
+
+@keyframes geneOrbitTiltB {
+  from { transform: rotate(-31deg) scaleY(1.02); }
+  to { transform: rotate(-37deg) scaleY(0.9); }
+}
+
+@keyframes talentFanIn {
+  from {
+    opacity: 0;
+    transform: translateY(42px) rotateX(-18deg) rotate(calc((var(--i) - 1) * 2.2deg)) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(calc((var(--i) - 1) * 1.2deg));
+  }
+}
+
+@media (max-width: 760px) {
+  .gene-card .gene-card-box {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    gap: 12px;
+    padding: 22px 20px 18px;
+    border-radius: 26px;
+  }
+
+  .gene-dish {
+    grid-row: 1;
+    width: 168px;
+    height: 168px;
+    margin: 0 auto;
+  }
+
+  .gene-copy,
+  .gene-card .gene-card-buttons {
+    grid-column: 1;
+  }
+
+  .gene-copy {
+    text-align: center;
+  }
+
+  .gene-card .gene-card-merge {
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gene-card .gene-card-box,
+  .gene-dish,
+  .gene-dish::before,
+  .gene-dish-orbit,
+  .talent-choice {
+    animation: none;
+  }
+}
+
+/* The pause sheet gained Croak and the combat-split note. Two columns keep
+   every control and the Continue button visible at 720p without a scrollbar. */
+.pause-box {
+  padding: 20px 24px;
+}
+
+.pause-section {
+  margin-top: 10px;
+}
+
+.pause-controls {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.pause-control {
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 11.5px;
+}
+
+.pause-control kbd {
+  flex-basis: 70px;
+}
+
+.pause-notes p {
+  margin-bottom: 3px;
+}
+
+.pause-continue {
+  margin-top: 10px;
+}
+
+@media (max-width: 620px), (max-height: 620px) {
+  .pause-controls {
+    grid-template-columns: 1fr;
+  }
 }

@@ -22,10 +22,14 @@ No install, no download, no account. Built for desktop Chrome, Edge, Firefox and
 
 You begin with 100 HP and no upgrades. Nothing carries over from the previous run.
 
-**The tongue is your only attack.** Arrow keys hop; `Space` attacks. Holding `Space` keeps
-attacking while you move, so you never have to stop to deal damage. The blast covers a circle
-centred on Tode, so the only real decision is where to stand: close enough to clear the
-swarm, not so close that contact damage lands first.
+**The tongue is your basic attack.** `WASD` hops; `Space` attacks. Holding `Space` keeps
+attacking while you move, so you never have to stop to deal damage. The snap is a direct hit
+in a 120° front wedge, and the croak wave it leaves behind splashes the rest of the circle.
+Facing matters without forcing you to aim, and the wave gives the 360° clear a visible cause.
+
+**At hero level 4, `Q` unlocks Croak.** A 360° shove with a short stun, on a seven-second
+cooldown. It is the answer to being surrounded: ordinary insects are pushed out and stopped
+for a beat, while bosses take a small share of damage and are never shoved.
 
 **Every tongue kill raises your maximum health.** Your level is derived from your maximum health, so
 the health bar is the progression curve — fifteen levels, each one paid for in insects. There
@@ -58,11 +62,17 @@ then start again.
 
 ## Screens
 
-**The talent draft.** Three cards, one pick, every minute. Cards are colour-coded by role —
-offense, defense, mobility, fortune — and each shows the rank you would get right now plus
-the hero level that unlocks the next one.
+**The talent draft.** Three gold cards, one pick, every minute. Cards are colour-coded by
+role — offense, defense, mobility, fortune — and each shows the rank you would get right now
+plus the hero level that unlocks the next one.
 
 <a href="https://cdn.jsdelivr.net/gh/wudhx/tode-talent-awakening@main/docs/screenshots/talent-draft.png"><img src="https://cdn.jsdelivr.net/gh/wudhx/tode-talent-awakening@main/docs/screenshots/talent-draft.png" width="700" alt="Talent draft — three cards, pick one"></a>
+
+**The gene specimen.** A single green laboratory dish rather than a second card row: one
+organism, one decision. `F` absorbs it into a slot; `G` discards it. Three orbs of the same
+quality merge into the next tier.
+
+<a href="https://cdn.jsdelivr.net/gh/wudhx/tode-talent-awakening@main/docs/screenshots/gene-specimen.png"><img src="https://cdn.jsdelivr.net/gh/wudhx/tode-talent-awakening@main/docs/screenshots/gene-specimen.png" width="700" alt="Gene specimen — a round laboratory dish with one gene to absorb or discard"></a>
 
 **The stat sheet.** Every number is shown with the sources that produced it — base, levels,
 genes, talents, boss kills, Awakening.
@@ -76,10 +86,11 @@ genes, talents, boss kills, Awakening.
 | System | What it does |
 |---|---|
 | **Hero levels** | 15 levels, 100 max HP each. Every tongue kill raises maximum HP by 2.5, so the level curve is the health bar. |
-| **Tongue blast** | Short-range area attack. Hold `Space` to keep attacking; movement never interrupts it. |
+| **Tongue snap** | 360° area attack with a 120° direct wedge. The front takes full damage, the rest takes 70%; bosses always take full damage. Hold `Space` to keep attacking; movement never interrupts it. |
+| **Croak** | Unlocks at hero level 4. `Q` shoves ordinary insects out of a 360° ring for 0.6s of stun and deals a small amount of damage. Bosses take the damage but are never shoved or stunned. Seven-second cooldown. |
 | **Awakening** | Score fills a bank of up to 3 charges (1,500 points each). `E` spends one for 10 seconds of 3× damage, 65% less damage taken, +60% attack range and +30% hop speed. |
 | **Talents** | 16 talents, 4 base slots (5 with Lucky), one offer every 60 seconds. Rank is driven by hero level (thresholds 1 / 2 / 3 / 5 / 7), so a talent keeps improving after you take it. |
-| **Genes** | 6 species × 3 qualities. Orbs drop from tongue kills and drift toward a nearby hero; taking one locks it in for the run and adds a stack. Three of the same quality merge into the next tier. |
+| **Genes** | 6 species × 3 qualities. Orbs drop from tongue kills and drift toward a nearby hero; absorbing one locks it in for the run and adds a stack. Three of the same quality merge into the next tier. |
 | **Bosses** | The first at 2,000 points, then every 3,000 after that. Each has a signature move: horn charge, venom pools, burrow ambush. |
 | **Dynamic difficulty** | Spawn rate, insect speed, your attack cooldown, your reach and your hop speed all scale with score. Insects scale faster than you do. |
 
@@ -89,13 +100,14 @@ genes, talents, boss kills, Awakening.
 
 | Key | Action |
 |---|---|
-| `↑ ↓ ← →` | Hop |
-| `Space` | Tongue blast (hold to keep attacking) |
+| `W A S D` | Hop |
+| `Space` | Tongue snap + croak wave (hold to keep attacking) |
+| `Q` | Croak — 360° shove and stun (unlocks at level 4) |
 | `E` | Awakening — spend one banked charge |
 | `1` `2` `3` | Pick a talent card |
 | `Esc` | Decline the talent offer |
-| `F` | Take the gene orb |
-| `G` / `Esc` | Skip the gene orb |
+| `F` | Absorb the gene orb |
+| `G` / `Esc` | Discard the gene orb |
 | `C` | Character panel |
 | `P` / `Esc` | Pause |
 | `M` | Mute |
@@ -146,7 +158,7 @@ game/
     └── components/
         ├── Player.js        input queue + parabolic hop movement
         ├── Enemy.js         species table, boss profiles, signature abilities
-        ├── Attack.js        tongue blast, cooldown, hit resolution
+        ├── Attack.js        tongue snap, croak wave, cooldown, hit resolution
         ├── Health.js        HP pool, level derivation, heal-over-time
         ├── Score.js         scoring and top-of-screen readout
         ├── Difficulty.js    score-driven scaling for enemies and hero

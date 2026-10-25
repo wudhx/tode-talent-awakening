@@ -288,20 +288,23 @@ export class Player {
   }
 
   /**
-   * Listens for arrow-key presses and enqueues the matching direction.
+   * Listens for WASD presses and enqueues the matching direction.
+   *
+   * Uses KeyboardEvent.code rather than .key so the controls keep working
+   * when the player has a non-Latin keyboard layout active.
    */
   bindInput() {
     const DIRECTION_KEYS = {
-      ArrowUp: new THREE.Vector2(0, 1),
-      ArrowDown: new THREE.Vector2(0, -1),
-      ArrowLeft: new THREE.Vector2(-1, 0),
-      ArrowRight: new THREE.Vector2(1, 0),
+      KeyW: new THREE.Vector2(0, 1),
+      KeyS: new THREE.Vector2(0, -1),
+      KeyA: new THREE.Vector2(-1, 0),
+      KeyD: new THREE.Vector2(1, 0),
     };
 
     window.addEventListener('keydown', (event) => {
       if (!this.controlsEnabled) return;
 
-      const direction = DIRECTION_KEYS[event.key];
+      const direction = DIRECTION_KEYS[event.code];
       if (!direction) return;
 
       event.preventDefault();
