@@ -154,7 +154,9 @@ export class Player {
     // Populated once the model finishes loading.
     this.loaded = false;
 
-    // Pending keyboard inputs, processed one hop at a time.
+    // Pending keyboard inputs, processed one hop at a time. Only the newest
+    // direction waits behind the current hop: tapping or holding a key must
+    // not build a long backlog the player has to sit through.
     /** @type {THREE.Vector2[]} */
     this.inputQueue = [];
 
@@ -303,7 +305,11 @@ export class Player {
       if (!direction) return;
 
       event.preventDefault();
-      this.inputQueue.push(direction);
+      if (this.inputQueue.length >= 1) {
+        this.inputQueue[0] = direction;
+      } else {
+        this.inputQueue.push(direction);
+      }
     });
   }
 
